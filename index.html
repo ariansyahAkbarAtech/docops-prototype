@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DocOps AI — Interactive Prototype</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --teal-50:#E1F5EE; --teal-100:#9FE1CB; --teal-400:#1D9E75; --teal-600:#0F6E56; --teal-900:#04342C;
+    --amber-50:#FAEEDA; --amber-400:#EF9F27; --amber-600:#BA7517; --amber-900:#412402;
+    --red-50:#FCEBEB; --red-600:#A32D2D; --red-900:#501313;
+    --gray-50:#F1EFE8; --gray-600:#5F5E5A; --gray-900:#2C2C2A;
+    --blue-50:#E6F1FB; --blue-600:#185FA5; --blue-900:#042C53;
+    --purple-400:#7F77DD; --purple-600:#534AB7;
+    --ink:#0F2830;
+    --surface:#F8FAFB;
+  }
+  * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { background: var(--surface); color: var(--ink); }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .badge-verified { background: var(--teal-50); color: var(--teal-900); border: 0.5px solid var(--teal-600); }
+  .badge-stale    { background: var(--amber-50); color: var(--amber-900); border: 0.5px solid var(--amber-600); }
+  .badge-contradict { background: var(--red-50); color: var(--red-900); border: 0.5px solid var(--red-600); }
+  .badge-unreviewed { background: var(--gray-50); color: var(--gray-900); border: 0.5px solid var(--gray-600); }
+  .badge-ai       { background: var(--blue-50); color: var(--blue-900); border: 0.5px solid var(--blue-600); }
+  .card { background: #FFFFFF; border: 0.5px solid #E2E8F0; border-radius: 12px; box-shadow: 0 1px 2px rgba(15,40,48,0.04); }
+  .btn-primary { background: var(--teal-600); color: white; }
+  .btn-primary:hover { background: var(--teal-900); }
+  .btn-outline { background: white; border: 0.5px solid #E2E8F0; color: var(--ink); }
+  .btn-outline:hover { background: var(--surface); }
+  .diff-remove { background: #FCEBEB; color: var(--red-900); font-family: ui-monospace, SFMono-Regular, monospace; }
+  .diff-add    { background: #EAF3DE; color: #173404; font-family: ui-monospace, SFMono-Regular, monospace; }
+  .kbd { font-family: ui-monospace, monospace; font-size: 11px; background: var(--gray-50); padding: 2px 6px; border-radius: 4px; border: 0.5px solid #E2E8F0; }
+  .nav-step { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--gray-600); }
+  .nav-step:hover { background: var(--gray-50); }
+  .nav-step.current { background: var(--teal-50); color: var(--teal-900); font-weight: 500; }
+  .nav-step.done { color: var(--teal-600); }
+  .nav-step .num { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; background: var(--gray-50); color: var(--gray-600); }
+  .nav-step.current .num { background: var(--teal-600); color: white; }
+  .nav-step.done .num { background: var(--teal-100); color: var(--teal-900); }
+</style>
+</head>
+<body>
+
+<div class="max-w-6xl mx-auto px-6 py-6">
+
+  <!-- Top bar -->
+  <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
+    <div class="flex items-center gap-3">
+      <div class="w-2 h-2 rounded-full" style="background: var(--teal-600)"></div>
+      <div class="font-medium text-lg">DocOps AI</div>
+      <div class="text-xs px-2 py-1 rounded" style="background: var(--amber-50); color: var(--amber-900); border: 0.5px solid var(--amber-600);">Prototype</div>
+    </div>
+    <div class="flex items-center gap-3 text-sm" style="color: var(--gray-600)">
+      <span>Ariansyah A.</span>
+      <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium" style="background: var(--purple-600); color: white;">AA</div>
+    </div>
+  </div>
+
+  <!-- Step navigator -->
+  <div class="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
+    <div class="nav-step" data-nav="1" onclick="goto(1)"><span class="num">1</span><span>Ask</span></div>
+    <div class="text-slate-300">→</div>
+    <div class="nav-step" data-nav="2" onclick="goto(2)"><span class="num">2</span><span>Verified search</span></div>
+    <div class="text-slate-300">→</div>
+    <div class="nav-step" data-nav="3" onclick="goto(3)"><span class="num">3</span><span>Drift inbox</span></div>
+    <div class="text-slate-300">→</div>
+    <div class="nav-step" data-nav="4" onclick="goto(4)"><span class="num">4</span><span>Review PR</span></div>
+    <div class="text-slate-300">→</div>
+    <div class="nav-step" data-nav="5" onclick="goto(5)"><span class="num">5</span><span>Merged</span></div>
+  </div>
+
+  <!-- Screen 1: Landing / Ask -->
+  <div class="screen active" data-screen="1">
+    <div class="text-center py-16">
+      <div class="text-sm uppercase tracking-wider mb-3" style="color: var(--teal-600); font-weight: 500; letter-spacing: 2px;">
+        Verified Search · Drift Detection · Review Workflow
+      </div>
+      <h1 class="text-4xl font-medium mb-3" style="color: var(--ink)">Ask your knowledge base anything.</h1>
+      <p class="text-lg mb-8" style="color: var(--gray-600)">Every answer carries a trust score — derived from freshness and review state.</p>
+
+      <div class="max-w-2xl mx-auto relative">
+        <input id="searchInput" type="text" placeholder="How does our API rate limiting work?"
+          class="w-full px-5 py-4 text-base rounded-xl border-0.5 focus:outline-none focus:ring-2"
+          style="border: 0.5px solid #E2E8F0; box-shadow: 0 1px 2px rgba(0,0,0,0.04);" />
+        <button onclick="goto(2)" class="absolute right-2 top-2 bottom-2 px-5 rounded-lg btn-primary font-medium">
+          Search
+        </button>
+      </div>
+
+      <div class="flex items-center justify-center gap-2 mt-4 text-sm" style="color: var(--gray-600)">
+        <span>Try:</span>
+        <button onclick="document.getElementById('searchInput').value='API rate limits'; goto(2);" class="kbd">API rate limits</button>
+        <button onclick="document.getElementById('searchInput').value='Webhook payload'; goto(2);" class="kbd">Webhook payload</button>
+        <button onclick="document.getElementById('searchInput').value='Onboarding guide'; goto(2);" class="kbd">Onboarding</button>
+      </div>
+
+      <div class="max-w-3xl mx-auto mt-16 grid grid-cols-3 gap-4">
+        <div class="card p-5 text-left">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-2 h-2 rounded-full" style="background: var(--teal-400)"></div>
+            <div class="font-medium text-sm">Verified answers</div>
+          </div>
+          <div class="text-xs" style="color: var(--gray-600)">Every result shows freshness and review state inline.</div>
+        </div>
+        <div class="card p-5 text-left">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-2 h-2 rounded-full" style="background: var(--amber-400)"></div>
+            <div class="font-medium text-sm">Drift inbox</div>
+          </div>
+          <div class="text-xs" style="color: var(--gray-600)">12 items flagged across sources. Triaged by severity.</div>
+        </div>
+        <div class="card p-5 text-left">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-2 h-2 rounded-full" style="background: var(--purple-400)"></div>
+            <div class="font-medium text-sm">PR-style review</div>
+          </div>
+          <div class="text-xs" style="color: var(--gray-600)">Diff, comment, approve — like GitHub, for docs.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 2: Verified Search Results -->
+  <div class="screen" data-screen="2">
+    <div class="card px-5 py-3 mb-4 flex items-center gap-3">
+      <svg class="w-4 h-4" style="color: var(--gray-600)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <input type="text" value="How does our API rate limiting work?" class="flex-1 outline-none text-sm" />
+      <div class="text-xs" style="color: var(--gray-600)">3 results</div>
+    </div>
+
+    <div class="flex items-center gap-2 mb-4 text-xs" style="color: var(--gray-600)">
+      <span>Filter:</span>
+      <button class="kbd" style="background: var(--teal-50); color: var(--teal-900); border-color: var(--teal-600);">All sources</button>
+      <button class="kbd">Verified only</button>
+      <button class="kbd">Needs attention</button>
+    </div>
+
+    <div class="space-y-3">
+
+      <div class="card p-5 border-l-4" style="border-left-color: var(--teal-400)">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="text-xs px-2 py-1 rounded-full badge-verified font-medium">● Verified</span>
+          <span class="text-xs" style="color: var(--gray-600)">Confluence · Engineering space</span>
+          <span class="text-xs ml-auto" style="color: var(--gray-600)">Relevance 94%</span>
+        </div>
+        <div class="font-medium mb-1">API Rate Limits — Reference</div>
+        <div class="text-sm mb-3" style="color: var(--gray-600)">Default limits are 1000 requests per minute per API key, scaled per plan tier. Enterprise customers may negotiate custom limits.</div>
+        <div class="flex items-center gap-3 text-xs" style="color: var(--gray-600)">
+          <span>✓ Reviewed 3 days ago by @maya.r</span>
+          <span>•</span>
+          <span>Next review in 27 days</span>
+          <span>•</span>
+          <a href="#" class="text-blue-700 hover:underline">Open source</a>
+        </div>
+      </div>
+
+      <div class="card p-5 border-l-4 cursor-pointer" style="border-left-color: var(--amber-400)" onclick="goto(3)">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="text-xs px-2 py-1 rounded-full badge-stale font-medium">● Likely stale</span>
+          <span class="text-xs" style="color: var(--gray-600)">Zendesk KB · Customer FAQ</span>
+          <span class="text-xs ml-auto" style="color: var(--gray-600)">Relevance 87%</span>
+        </div>
+        <div class="font-medium mb-1">What are your API rate limits?</div>
+        <div class="text-sm mb-3" style="color: var(--gray-600)">Contradicts reference: claims 500 requests per minute — doc last edited 4 months ago before rate limit increase.</div>
+        <div class="flex items-center gap-3 text-xs" style="color: var(--amber-900)">
+          <span>⚠ Update suggested</span>
+          <span>•</span>
+          <span>Review needed</span>
+          <span>•</span>
+          <span style="color: var(--teal-600); font-weight: 500;">Click to see drift inbox →</span>
+        </div>
+      </div>
+
+      <div class="card p-5 border-l-4" style="border-left-color: var(--gray-600)">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="text-xs px-2 py-1 rounded-full badge-unreviewed font-medium">● Unreviewed</span>
+          <span class="text-xs" style="color: var(--gray-600)">GitHub README · api-gateway repo</span>
+          <span class="text-xs ml-auto" style="color: var(--gray-600)">Relevance 76%</span>
+        </div>
+        <div class="font-medium mb-1">Rate limiting middleware</div>
+        <div class="text-sm mb-3" style="color: var(--gray-600)">Implementation details — not yet reviewed by a human, trust score is heuristic only.</div>
+        <div class="flex items-center gap-3 text-xs" style="color: var(--gray-600)">
+          <span>Last commit 12 days ago</span>
+          <span>•</span>
+          <a href="#" class="text-blue-700 hover:underline">Request review</a>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="mt-6 flex items-center justify-between">
+      <button onclick="goto(1)" class="btn-outline px-4 py-2 rounded-lg text-sm">← Back</button>
+      <button onclick="goto(3)" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">View drift inbox →</button>
+    </div>
+  </div>
+
+  <!-- Screen 3: Drift Inbox -->
+  <div class="screen" data-screen="3">
+    <div class="mb-5">
+      <div class="text-lg font-medium">Drift detection</div>
+      <div class="text-sm" style="color: var(--gray-600)">Documents that may no longer reflect product reality</div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-3 mb-5">
+      <div class="card p-4">
+        <div class="text-xs uppercase tracking-wide mb-2" style="color: var(--gray-600)">Stale</div>
+        <div class="text-2xl font-medium">7</div>
+        <div class="text-xs mt-1" style="color: var(--amber-600)">↑ 2 this week</div>
+      </div>
+      <div class="card p-4">
+        <div class="text-xs uppercase tracking-wide mb-2" style="color: var(--gray-600)">Contradictions</div>
+        <div class="text-2xl font-medium">3</div>
+        <div class="text-xs mt-1" style="color: var(--red-600)">1 high-priority</div>
+      </div>
+      <div class="card p-4">
+        <div class="text-xs uppercase tracking-wide mb-2" style="color: var(--gray-600)">Ownerless</div>
+        <div class="text-2xl font-medium">2</div>
+        <div class="text-xs mt-1" style="color: var(--gray-600)">Needs assignment</div>
+      </div>
+    </div>
+
+    <div class="space-y-3">
+
+      <div class="card p-5 border-l-4 cursor-pointer hover:shadow-md transition" style="border-left-color: var(--red-600)" onclick="goto(4)">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="text-xs px-2 py-1 rounded-full badge-contradict font-medium">● Contradiction</span>
+          <span class="text-xs" style="color: var(--gray-600)">3 sources disagree</span>
+          <span class="text-xs ml-auto" style="color: var(--gray-600)">Priority high</span>
+        </div>
+        <div class="font-medium mb-1">API rate limits</div>
+        <div class="text-sm mb-3" style="color: var(--gray-600)">Confluence says 1000/min, Zendesk says 500/min, README says 1200/min.</div>
+        <div class="flex items-center gap-3 text-xs" style="color: var(--teal-600); font-weight: 500;">
+          <span>Open review →</span>
+        </div>
+      </div>
+
+      <div class="card p-5 border-l-4" style="border-left-color: var(--amber-400)">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="text-xs px-2 py-1 rounded-full badge-stale font-medium">● Stale</span>
+          <span class="text-xs" style="color: var(--gray-600)">Code changed 8 days ago, doc unchanged</span>
+          <span class="text-xs ml-auto" style="color: var(--gray-600)">Priority medium</span>
+        </div>
+        <div class="font-medium mb-1">Webhook payload structure</div>
+        <div class="text-sm" style="color: var(--gray-600)">Last commit added 2 new event fields — docs not updated.</div>
+      </div>
+
+      <div class="card p-5 border-l-4" style="border-left-color: var(--amber-400)">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="text-xs px-2 py-1 rounded-full badge-stale font-medium">● Stale</span>
+          <span class="text-xs" style="color: var(--gray-600)">Last review 94 days ago</span>
+          <span class="text-xs ml-auto" style="color: var(--gray-600)">Priority low</span>
+        </div>
+        <div class="font-medium mb-1">Onboarding guide — new engineers</div>
+        <div class="text-sm" style="color: var(--gray-600)">Deploy process changed — doc mentions old CI pipeline.</div>
+      </div>
+
+    </div>
+
+    <div class="mt-6 flex items-center justify-between">
+      <button onclick="goto(2)" class="btn-outline px-4 py-2 rounded-lg text-sm">← Back</button>
+      <button onclick="goto(4)" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">Open top contradiction →</button>
+    </div>
+  </div>
+
+  <!-- Screen 4: Doc PR Review -->
+  <div class="screen" data-screen="4">
+    <div class="mb-5">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="text-lg font-medium">Update rate limits reference</div>
+        <span class="text-xs px-2 py-1 rounded-full badge-ai font-medium">● AI suggested</span>
+        <span class="text-xs" style="color: var(--gray-600)">Doc PR #247</span>
+      </div>
+      <div class="text-sm" style="color: var(--gray-600)">Triggered by commit <span class="kbd">a3f2b1</span> in api-gateway · <span style="color: var(--teal-600)">3 sources will be updated to match</span></div>
+    </div>
+
+    <div class="card p-0 overflow-hidden mb-5">
+      <div class="px-4 py-2 text-xs flex items-center gap-2" style="background: var(--surface); border-bottom: 0.5px solid #E2E8F0; color: var(--gray-600);">
+        <span>📄 rate-limits.md</span>
+        <span>·</span>
+        <span>Confluence / Engineering space</span>
+      </div>
+
+      <div class="text-sm">
+        <div class="diff-remove px-4 py-2">
+          <span class="inline-block w-4">−</span>Default rate limit: 500 requests per minute.
+        </div>
+        <div class="diff-add px-4 py-2">
+          <span class="inline-block w-4">+</span>Default rate limit: 1000 requests per minute.
+        </div>
+        <div class="diff-add px-4 py-2">
+          <span class="inline-block w-4">+</span>Higher limits available on Scale and Enterprise plans.
+        </div>
+        <div class="px-4 py-2" style="color: var(--gray-600)">
+          <span class="inline-block w-4 text-xs" style="font-family: monospace;"> </span>Contact support to discuss enterprise rate limit negotiation.
+        </div>
+      </div>
+
+      <div class="px-4 py-3 border-t" style="background: var(--surface); border-color: #E2E8F0;">
+        <div class="flex gap-3">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium shrink-0" style="background: var(--purple-600); color: white;">MA</div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2 text-xs mb-1">
+              <span class="font-medium">Maya · reviewer</span>
+              <span style="color: var(--gray-600)">2 minutes ago</span>
+            </div>
+            <div class="text-sm">
+              Confirmed against <span class="kbd">api-gateway/config.ts</span> — new value is correct. Safe to merge. <br/>
+              Also opening a follow-up PR for the Zendesk KB doc.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-5 mb-5">
+      <div class="text-sm font-medium mb-3">Evidence citations</div>
+      <div class="space-y-2 text-sm">
+        <div class="flex items-start gap-3">
+          <span class="text-xs px-2 py-1 rounded-full badge-verified shrink-0">source</span>
+          <div>
+            <div class="font-medium">api-gateway/config.ts · line 42</div>
+            <div style="color: var(--gray-600)">const DEFAULT_RATE_LIMIT = 1000; // updated 2026-04-13</div>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <span class="text-xs px-2 py-1 rounded-full badge-verified shrink-0">source</span>
+          <div>
+            <div class="font-medium">Release notes · v4.8.0</div>
+            <div style="color: var(--gray-600)">"Rate limit increased from 500 to 1000 requests per minute on default tier."</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3 mb-5">
+      <button onclick="goto(5)" class="btn-primary px-5 py-2.5 rounded-lg font-medium">✓ Approve and merge</button>
+      <button class="btn-outline px-4 py-2.5 rounded-lg text-sm">Request changes</button>
+      <button class="btn-outline px-4 py-2.5 rounded-lg text-sm">Comment</button>
+    </div>
+
+    <div class="card p-5">
+      <div class="text-sm font-medium mb-3">Audit trail</div>
+      <div class="space-y-2 text-xs">
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full" style="background: var(--teal-400)"></div>
+          <span class="flex-1">Drift detected by agent · code change in <span class="kbd">api-gateway@a3f2b1</span></span>
+          <span style="color: var(--gray-600)">14m ago</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full" style="background: var(--blue-600)"></div>
+          <span class="flex-1">Update drafted by AI with evidence citation</span>
+          <span style="color: var(--gray-600)">12m ago</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full" style="background: var(--purple-600)"></div>
+          <span class="flex-1">Routed to owner · @maya.r (rate-limits.md)</span>
+          <span style="color: var(--gray-600)">10m ago</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full" style="background: var(--amber-400)"></div>
+          <span class="flex-1">Awaiting reviewer decision</span>
+          <span style="color: var(--gray-600)">now</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 flex items-center justify-between">
+      <button onclick="goto(3)" class="btn-outline px-4 py-2 rounded-lg text-sm">← Back to drift inbox</button>
+    </div>
+  </div>
+
+  <!-- Screen 5: Merged success -->
+  <div class="screen" data-screen="5">
+    <div class="text-center py-12">
+      <div class="w-16 h-16 mx-auto mb-6 rounded-full flex items-center justify-center" style="background: var(--teal-50); border: 0.5px solid var(--teal-600);">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: var(--teal-600);">
+          <polyline points="20 6 9 17 4 12" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-medium mb-2">Approved and merged</h1>
+      <p class="text-base mb-8" style="color: var(--gray-600)">Update pushed to Confluence · audit trail recorded · contradictions reduced from 3 to 2.</p>
+
+      <div class="max-w-2xl mx-auto card p-5 text-left mb-6">
+        <div class="text-sm font-medium mb-3">What happened</div>
+        <div class="space-y-2 text-sm" style="color: var(--gray-600)">
+          <div class="flex items-start gap-3">
+            <div class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5" style="background: var(--teal-50); color: var(--teal-600); font-size: 11px; border: 0.5px solid var(--teal-600);">1</div>
+            <div>Confluence doc <span class="kbd">rate-limits.md</span> updated via Confluence REST API with reviewer-approved diff.</div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5" style="background: var(--teal-50); color: var(--teal-600); font-size: 11px; border: 0.5px solid var(--teal-600);">2</div>
+            <div>Audit entry recorded in Postgres — timestamp, reviewer, diff hash, evidence citations.</div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5" style="background: var(--teal-50); color: var(--teal-600); font-size: 11px; border: 0.5px solid var(--teal-600);">3</div>
+            <div>Trust score for this doc recomputed — freshness reset, review state marked current.</div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5" style="background: var(--amber-50); color: var(--amber-600); font-size: 11px; border: 0.5px solid var(--amber-600);">4</div>
+            <div>Follow-up PR opened by Maya for Zendesk KB doc — awaiting review.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-center gap-3">
+        <button onclick="goto(1)" class="btn-outline px-5 py-2.5 rounded-lg text-sm">Start over</button>
+        <button onclick="goto(3)" class="btn-primary px-5 py-2.5 rounded-lg font-medium">Back to drift inbox</button>
+      </div>
+
+      <div class="mt-12 text-xs" style="color: var(--gray-600)">
+        This is a concept prototype — all data is mocked. Not connected to real systems.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let currentStep = 1;
+  const totalSteps = 5;
+
+  function goto(step) {
+    if (step < 1 || step > totalSteps) return;
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.screen[data-screen="${step}"]`).classList.add('active');
+    document.querySelectorAll('.nav-step').forEach(n => {
+      const num = parseInt(n.dataset.nav, 10);
+      n.classList.remove('current', 'done');
+      if (num === step) n.classList.add('current');
+      else if (num < step) n.classList.add('done');
+    });
+    currentStep = step;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Keyboard nav: arrow keys
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' && currentStep < totalSteps) goto(currentStep + 1);
+    if (e.key === 'ArrowLeft' && currentStep > 1) goto(currentStep - 1);
+  });
+
+  // Initialize
+  goto(1);
+</script>
+
+</body>
+</html>
